@@ -1,9 +1,10 @@
 
-import os, rev_dns
+import os, rev_dns, dpkt, shutil
 from scapy.all import IP, RawPcapReader, Ether, PcapWriter
 from pyasn1.codec.ber import decoder
 from pyasn1_ldap.rfc4511 import LDAPMessage
 from io import TextIOWrapper
+from dpkt import snoop
 
 
 class Trafico:
@@ -200,7 +201,7 @@ class Trafico:
     @staticmethod
     def es_pcap(captura: str) -> bool:
         """
-        Analiza el formato de un fichero de captura de red.
+        Comprueba si un fichero de captura de red esta en formato pcap.
 
         Args:
             captura: Path al fichero de captura.
@@ -221,13 +222,73 @@ class Trafico:
 
 
     @staticmethod
+    def es_snoop(captura: str) -> bool:
+        """
+        Comprueba si un fichero de captura de red esta en formato snoop.
+
+        Args:
+            captura: Path al fichero de captura.
+
+        Returns:
+            bool: True si el fichero de captura de red esta en formato snoop, False en caso contrario.
+        """
+        try:
+            with open(captura, "rb") as f:
+                header = f.read(16)
+
+            # Firma mágica: "snoop\0\0\0"
+            if header[:8] != b"snoop\x00\x00\x00":
+                return False
+
+            # Versión (4 bytes big-endian)
+            version = int.from_bytes(header[8:12], "big")
+
+            return version == 2
+
+        except Exception:
+            return False
+
+
+    @staticmethod
     def convertir_si_necesario(captura: str) -> None:
         """
-        Sobreescribe el fichero a formato pcap si no lo es. REQUIERE DE EDITCAP INSTALADO Y EN VARIABLE DE ENTORNO PATH.
+        Sobreescribe la captura a formato pcap si no lo es.
 
         Args:
             captura: Path al fichero de captura.
         """
 
-        if not Trafico.es_pcap(captura):
-            os.system(f'editcap{'.exe' if os.name == 'nt' else ''} -F pcap {captura} {captura}')
+        # Si ya esta en formato pcap, no se hace nada
+        if Trafico.es_pcap(captura):
+            return
+
+        if Trafico.es_snoop(captura):
+            Trafico.convertir_snoop_a_pcap(captura)
+        #elif OTROS FORMATOS
+            
+
+    @staticmethod
+    def convertir_snoop_a_pcap(captura: str) -> None:
+        """
+        Sobreescribe la captura en formato snoop a formato pcap.
+
+        Args:
+            captura: Path al fichero de captura.
+        """
+        # Se abre la captura snoop para leer en formato bytes
+        with open(captura, "rb") as f_in:
+            reader = snoop.Reader(f_in)
+
+            # Se crea el fichero de salida con nombre temporal en formato pcap
+            with open(f'{captura}_temp', "wb") as f_out:
+                writer = dpkt.pcap.Writer(
+                    f_out,
+                    snaplen=262144,
+                    linktype=dpkt.pcap.DLT_EN10MB  # Ethernet
+                )
+                writepkt = writer.writepkt  # Micro-optimización
+                for ts, buf in reader:
+                    writepkt(buf, ts)
+
+        # Sobreescribir la captura temporal y asignarle el nombre definitivo
+        shutil.move(f'{captura}_temp', captura)

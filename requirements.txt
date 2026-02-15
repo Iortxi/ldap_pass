@@ -3,3 +3,4 @@ scapy
 pyasn1
 pyasn1_ldap
 dnspython
+dpkt
