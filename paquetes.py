@@ -12,11 +12,13 @@ class Trafico:
 
     # Traffic listeners supported (base commands)
     listeners = {
-        'snoop': 'snoop -d INTERFAZ -o /tmp/NOMBRE port PUERTO',
-        'tcpdump': 'tcpdump -n -i INTERFAZ -w /tmp/NOMBRE port PUERTO',
-        'tshark': 'tshark -n -i INTERFAZ -w /tmp/NOMBRE -f "port PUERTO"',
-        'dumpcap': 'dumpcap -n -i INTERFAZ -w /tmp/NOMBRE -f "port PUERTO"',
+        # -F pcap solo en versiones modernas de snoop y nse si en cualquiera del resto
+        'snoop': ['snoop -d INTERFAZ -o /tmp/NOMBRE', 'port PUERTO'],
+        'tcpdump': ['tcpdump -n -i INTERFAZ -w /tmp/NOMBRE', 'port PUERTO'],
+        'tshark': ['tshark -n -i INTERFAZ -w /tmp/NOMBRE', 'port PUERTO'],
+        'dumpcap': ['dumpcap -n -i INTERFAZ -w /tmp/NOMBRE', '-f "tcp port PUERTO"'],
     }
+
 
 
     @staticmethod
@@ -47,6 +49,7 @@ class Trafico:
         # Si los bytes no encajan, el paquete no es LDAP
         except:
             return False
+
 
 
     @staticmethod
@@ -95,6 +98,7 @@ class Trafico:
         return ip_origen, ip_destino, dn, password
 
 
+
     @staticmethod
     def filtrar_paquetes(captura: str, dict_dns: dict, resolver_dns: bool, verbose: bool, writer_output: TextIOWrapper = None, writer_captura: PcapWriter = None) -> None:
         """
@@ -137,7 +141,8 @@ class Trafico:
                 # Escribir la informacion por pantalla
                 if verbose:
                     print(s)
-    
+
+
 
     @staticmethod
     def unir_dos_capturas(captura1: str, captura2: str, writer_output: TextIOWrapper, dict_dns: dict, resolver_dns: bool, verbose: bool) -> None:
@@ -164,6 +169,7 @@ class Trafico:
 
         # Se cierra el escritor
         writer_captura.close()
+
 
 
     @staticmethod
@@ -198,56 +204,6 @@ class Trafico:
         writer_captura.close()
 
 
-    @staticmethod
-    def es_pcap(captura: str) -> bool:
-        """
-        Comprueba si un fichero de captura de red esta en formato pcap.
-
-        Args:
-            captura: Path al fichero de captura.
-
-        Returns:
-            bool: True si el fichero de captura de red esta en formato pcap, False en caso contrario.
-        """
-
-        # Se toman los primeros 4 bytes del fichero para ver su formato
-        with open(captura, "rb") as f:
-            bytes = f.read(4)
-
-        # Magic bytes del formato de captura pcapng
-        # return bytes == b'\x0a\x0d\x0d\x0a'
-
-        # Magic bytes del formato de captura pcap
-        return bytes == b'\xd4\xc3\xb2\xa1' or bytes == b'\xa1\xb2\xc3\xd4'
-
-
-    @staticmethod
-    def es_snoop(captura: str) -> bool:
-        """
-        Comprueba si un fichero de captura de red esta en formato snoop.
-
-        Args:
-            captura: Path al fichero de captura.
-
-        Returns:
-            bool: True si el fichero de captura de red esta en formato snoop, False en caso contrario.
-        """
-        try:
-            with open(captura, "rb") as f:
-                header = f.read(16)
-
-            # Firma mágica: "snoop\0\0\0"
-            if header[:8] != b"snoop\x00\x00\x00":
-                return False
-
-            # Versión (4 bytes big-endian)
-            version = int.from_bytes(header[8:12], "big")
-
-            return version == 2
-
-        except Exception:
-            return False
-
 
     @staticmethod
     def convertir_si_necesario(captura: str) -> None:
@@ -258,37 +214,70 @@ class Trafico:
             captura: Path al fichero de captura.
         """
 
-        # Si ya esta en formato pcap, no se hace nada
-        if Trafico.es_pcap(captura):
-            return
+        # Formato de la captura de trafico
+        tipo = Trafico.tipo_paquete(captura)
 
-        if Trafico.es_snoop(captura):
-            Trafico.convertir_snoop_a_pcap(captura)
-        #elif OTROS FORMATOS
-            
+        if tipo != 'pcap':
+            Trafico.convertir(captura, tipo)
+
+
 
     @staticmethod
-    def convertir_snoop_a_pcap(captura: str) -> None:
+    def tipo_paquete(captura: str) -> str:
         """
-        Sobreescribe la captura en formato snoop a formato pcap.
+        Comprueba el formato de una captura de trafico.
+
+        Args:
+            captura: Path al fichero de captura.
+
+        Returns:
+            str: Cadena de texto con el nombre del formato del fichero de captura.
+        """
+        with open(captura, 'wb') as f:
+            cabecera = f.read(8)
+
+        if cabecera[:4] == b'\xd4\xc3\xb2\xa1' or cabecera[:4] == b'\xa1\xb2\xc3\xd4':
+            return 'pcap'
+        elif cabecera[:4] == b'\x0a\x0d\x0d\x0a':
+            return 'pcapng'
+        elif cabecera == b"snoop\x00\x00\x00":
+            return 'snoop'
+
+
+
+    @staticmethod
+    def convertir(captura: str, tipo: str) -> None:
+        """
+        Sobreescribe la captura en formato diferente a pcap a formato pcap.
 
         Args:
             captura: Path al fichero de captura.
         """
-        # Se abre la captura snoop para leer en formato bytes
-        with open(captura, "rb") as f_in:
-            reader = snoop.Reader(f_in)
+        nombre_temporal = f'{captura}_temp'
 
-            # Se crea el fichero de salida con nombre temporal en formato pcap
-            with open(f'{captura}_temp', "wb") as f_out:
-                writer = dpkt.pcap.Writer(
-                    f_out,
-                    snaplen=262144,
-                    linktype=dpkt.pcap.DLT_EN10MB  # Ethernet
-                )
-                writepkt = writer.writepkt  # Micro-optimización
-                for ts, buf in reader:
-                    writepkt(buf, ts)
+        if tipo == 'snoop':
+            with open(captura, "rb") as f_in:
+                reader = snoop.Reader(f_in)
+                # Se crea el fichero de salida con nombre temporal en formato pcap
+                with open(nombre_temporal, "wb") as f_out:
+                    writer = dpkt.pcap.Writer(
+                        f_out,
+                        snaplen=262144,
+                        linktype=dpkt.pcap.DLT_EN10MB  # Ethernet
+                    )
+                    writepkt = writer.writepkt  # Micro-optimización
+                    for ts, buf in reader:
+                        writepkt(buf, ts)
+
+        elif tipo == 'pcapng':
+            with open(captura, 'rb') as f_in:
+                pcapng = dpkt.pcapng.Reader(f_in)
+                
+                with open(nombre_temporal, 'wb') as f_out:
+                    writer = dpkt.pcap.Writer(f_out)
+                    
+                    for timestamp, packet in pcapng:
+                        writer.writepkt(packet, ts=timestamp)
 
         # Sobreescribir la captura temporal y asignarle el nombre definitivo
-        shutil.move(f'{captura}_temp', captura)
+        shutil.move(nombre_temporal, captura)

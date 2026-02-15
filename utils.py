@@ -16,6 +16,7 @@ def soltar_error(mensaje: str, codigo: int) -> NoReturn:
     sys.exit(codigo)
 
 
+
 def recoger_opcion(mostrar_menu: bool) -> Literal[0, 1]:
     """
     La ejecucion queda a la espera de que el usuario ejecute una opcion. Opcionalmente muestra menu de opciones.

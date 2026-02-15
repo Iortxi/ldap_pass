@@ -41,6 +41,7 @@ class SSH:
         return ssh, ssh.open_sftp()
 
 
+
     @staticmethod
     def verificar_interfaz_red_remota(ssh: paramiko.SSHClient, args: Namespace) -> None:
         """
@@ -56,6 +57,7 @@ class SSH:
 
         if not SSH.comando_ok(ssh, comando):
             soltar_error('Remote network interface does not exist', 5)
+
 
 
     @staticmethod
@@ -77,6 +79,7 @@ class SSH:
         # Borrar captura remota
         SSH.comando_ok(ssh, f'rm -f /tmp/{args.filename}')
         # del /f /q FICHERO -> Equivalente en Windows a rm -f FICHERO
+
 
 
     @staticmethod
@@ -101,6 +104,7 @@ class SSH:
         return codigo_salida == 0
 
 
+
     @staticmethod
     def comando_remoto(ssh: paramiko.SSHClient, args: Namespace, listeners: dict) -> str:
         """
@@ -116,30 +120,34 @@ class SSH:
         """
 
         # Primero se prueba el comando escuchador especificado por el usuario, si no funciona, se muestra warning y se prueba el resto
-        if args.command and SSH.comando_ok(f'which {args.command}'):
-            return listeners[args.command].replace('INTERFAZ', args.interface).replace('NOMBRE', f'{args.filename}_temp')
+        if args.command and args.command in listeners and SSH.comando_ok(f'which {args.command}'):
+            # Comando a ejecutar para capturar trafico sin filtrar por puerto
+            com = listeners[args.command][0].replace('INTERFAZ', args.interface).replace('NOMBRE', f'{args.filename}_temp')
+
+            # Si se ha especificado un puerto, se agnade al comando
+            if args.port:
+                com += f'{listeners[args.command][1].replace('PUERTO', str(args.port))}'
+
+            return com
         else:
-            print(f'[!] WARNING: Specified listener command does not exist. Trying with the others supported')
+            print('[!] WARNING: Specified listener command does not exist. Trying with the others supported')
 
 
         # Se itera sobre los programas de escucha disponibles. Se usa el primero que exista en la maquina remota
         for escuchador in listeners.keys():
             if SSH.comando_ok(ssh, f'which {escuchador}'):
-                plantilla = listeners[escuchador]
+                # Comando a ejecutar para capturar trafico sin filtrar por puerto
+                com = listeners[args.command][0].replace('INTERFAZ', args.interface).replace('NOMBRE', f'{args.filename}_temp')
 
-                # Si el usuario ha especificado un puerto, se sustituye en el comando plantilla
+                # Si se ha especificado un puerto, se agnade al comando
                 if args.port:
-                    plantilla = plantilla.replace('PUERTO', str(args.port))
-                
-                # Si no, se elimina (en las plantillas, el puerto se pone lo ultimo y el nombre del fichero captura lo penultimo)
-                else:
-                    plantilla = plantilla.split('NOMBRE')[0] + 'NOMBRE'
+                    com += f'{listeners[args.command][1].replace('PUERTO', str(args.port))}'
 
-                # Se reemplazan el resto de argumentos
-                return listeners[escuchador].replace('INTERFAZ', args.interface).replace('NOMBRE', f'{args.filename}_temp')
+                return com
 
         # Ningun programa de escucha de los disponibles existe en la maquina remota
         soltar_error('Any of the listeners supported are available on remote host', 5)
+
 
 
     @staticmethod
@@ -171,6 +179,7 @@ class SSH:
         #         "No se pudo obtener el PID remoto"
 
         return int(pid)
+
 
 
     @staticmethod
