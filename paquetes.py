@@ -12,7 +12,7 @@ class Trafico:
 
     # Traffic listeners supported (base commands)
     listeners = {
-        # -F pcap solo en versiones modernas de snoop y nse si en cualquiera del resto
+        # "-F pcap" solo en versiones modernas de snoop y nse si en cualquiera del resto
         'snoop': ['snoop -d INTERFAZ -o /tmp/NOMBRE', 'port PUERTO'],
         'tcpdump': ['tcpdump -n -i INTERFAZ -w /tmp/NOMBRE', 'port PUERTO'],
         'tshark': ['tshark -n -i INTERFAZ -w /tmp/NOMBRE', 'port PUERTO'],

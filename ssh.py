@@ -96,7 +96,7 @@ class SSH:
         """
 
         # Ejecuta un comando pero no espera a que acabe
-        _, stdout, _ = ssh.exec_command(comando)
+        _, stdout, _ = ssh.exec_command(f'bash -lc "{comando}"')
         
         # Espera a que el comando termine y saca su codigo de salida
         codigo_salida = stdout.channel.recv_exit_status()
@@ -120,28 +120,29 @@ class SSH:
         """
 
         # Primero se prueba el comando escuchador especificado por el usuario, si no funciona, se muestra warning y se prueba el resto
-        if args.command and args.command in listeners and SSH.comando_ok(f'which {args.command}'):
-            # Comando a ejecutar para capturar trafico sin filtrar por puerto
-            com = listeners[args.command][0].replace('INTERFAZ', args.interface).replace('NOMBRE', f'{args.filename}_temp')
+        if args.command:
+            if SSH.comando_ok(ssh, f'which {args.command}'):
+                # Comando a ejecutar para capturar trafico sin filtrar por puerto
+                com = listeners[args.command][0].replace('INTERFAZ', args.interface).replace('NOMBRE', f'{args.filename}_temp')
 
-            # Si se ha especificado un puerto, se agnade al comando
-            if args.port:
-                com += f'{listeners[args.command][1].replace('PUERTO', str(args.port))}'
+                # Si se ha especificado un puerto, se agnade al comando
+                if args.port:
+                    com += f' {listeners[args.command][1].replace('PUERTO', str(args.port))}'
 
-            return com
-        else:
-            print('[!] WARNING: Specified listener command does not exist. Trying with the others supported')
+                return com
+            else:
+                print('[!] WARNING: Specified listener command is not available on remote host. Trying with the others supported')
 
 
         # Se itera sobre los programas de escucha disponibles. Se usa el primero que exista en la maquina remota
         for escuchador in listeners.keys():
             if SSH.comando_ok(ssh, f'which {escuchador}'):
                 # Comando a ejecutar para capturar trafico sin filtrar por puerto
-                com = listeners[args.command][0].replace('INTERFAZ', args.interface).replace('NOMBRE', f'{args.filename}_temp')
+                com = listeners[escuchador][0].replace('INTERFAZ', args.interface).replace('NOMBRE', f'{args.filename}_temp')
 
                 # Si se ha especificado un puerto, se agnade al comando
                 if args.port:
-                    com += f'{listeners[args.command][1].replace('PUERTO', str(args.port))}'
+                    com += f' {listeners[escuchador][1].replace('PUERTO', str(args.port))}'
 
                 return com
 

@@ -12,7 +12,7 @@ def soltar_error(mensaje: str, codigo: int) -> NoReturn:
         codigo: Entero con el codigo de salida con el que finalizar la ejecucion.
     """
 
-    print(f'\n[!] {mensaje}\n')
+    print(f'\n[!] {mensaje}')
     sys.exit(codigo)
 
 

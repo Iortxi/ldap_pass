@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
 
     # Se verifica si el comando escuchador especificado esta soportado
-    if args.command and args.command.lower() not in Trafico.listeners.keys():
+    if args.command and args.command.lower() not in Trafico.listeners:
         soltar_error('Listener command specified not supported', 6)
 
     # Sockets de la conexion remota SSH para ejecutar comandos y transferir archivos
@@ -60,6 +60,8 @@ if __name__ == '__main__':
 
     # Comando de captura a ejecutar remotamente
     comando = SSH.comando_remoto(ssh, args, Trafico.listeners)
+
+    soltar_error(comando, 0)
 
     # Se inicia la primera captura
     pid_remoto = SSH.iniciar_captura(ssh, comando)
@@ -113,5 +115,10 @@ if __name__ == '__main__':
             ssh.close()
             soltar_error('Unexpected exception', 4)
 
+    # Cerrar el fichero de salida de informacion si se ha especificado
+    if args.output:
+        writer_output.close()
+
+    # Cerrar conexiones SSH y SFTP
     scp.close()
     ssh.close()
