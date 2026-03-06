@@ -61,8 +61,6 @@ if __name__ == '__main__':
     # Comando de captura a ejecutar remotamente
     comando = SSH.comando_remoto(ssh, args, Trafico.listeners)
 
-    soltar_error(comando, 0)
-
     # Se inicia la primera captura
     pid_remoto = SSH.iniciar_captura(ssh, comando)
 
@@ -80,7 +78,6 @@ if __name__ == '__main__':
 
             # Convertir la captura recogida a formato pcap si es necesario
             Trafico.convertir_si_necesario(nombre_temporal)
-
 
             # Detener captura e iniciar otra
             if opcion == 0:
@@ -109,10 +106,11 @@ if __name__ == '__main__':
 
 
         # Detener ejecucion si ocurre cualquier excepcion no esperada
-        except:
+        except Exception as e:
             SSH.parar_captura(ssh, pid_remoto)
             scp.close()
             ssh.close()
+            print(f'[!] Unexpected exception: {e}')
             soltar_error('Unexpected exception', 4)
 
     # Cerrar el fichero de salida de informacion si se ha especificado

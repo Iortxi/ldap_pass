@@ -233,7 +233,7 @@ class Trafico:
         Returns:
             str: Cadena de texto con el nombre del formato del fichero de captura.
         """
-        with open(captura, 'wb') as f:
+        with open(captura, 'rb') as f:
             cabecera = f.read(8)
 
         if cabecera[:4] == b'\xd4\xc3\xb2\xa1' or cabecera[:4] == b'\xa1\xb2\xc3\xd4':

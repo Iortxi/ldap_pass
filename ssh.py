@@ -74,7 +74,7 @@ class SSH:
         nombre_temporal = f'{args.filename}_temp'
 
         # Recoger captura guardada remotamente
-        scp.get(f'/tmp/{nombre_temporal}', f'./{nombre_temporal}')
+        scp.get(f'/tmp/{args.filename}', f'./{nombre_temporal}')
         
         # Borrar captura remota
         SSH.comando_ok(ssh, f'rm -f /tmp/{args.filename}')
@@ -119,11 +119,14 @@ class SSH:
             str: Cadena de texto del comando a ejecutar en el servidor remoto para escuchar trafico.
         """
 
+        # Mostrar que escuchador se va a usar
+        mostrar = False
+
         # Primero se prueba el comando escuchador especificado por el usuario, si no funciona, se muestra warning y se prueba el resto
         if args.command:
             if SSH.comando_ok(ssh, f'which {args.command}'):
                 # Comando a ejecutar para capturar trafico sin filtrar por puerto
-                com = listeners[args.command][0].replace('INTERFAZ', args.interface).replace('NOMBRE', f'{args.filename}_temp')
+                com = listeners[args.command][0].replace('INTERFAZ', args.interface).replace('NOMBRE', args.filename)
 
                 # Si se ha especificado un puerto, se agnade al comando
                 if args.port:
@@ -131,14 +134,19 @@ class SSH:
 
                 return com
             else:
-                print('[!] WARNING: Specified listener command is not available on remote host. Trying with the others supported')
+                mostrar = True
+                print('[!] WARNING: Specified listener command is not available on remote host. Trying with the others supported\n')
 
 
         # Se itera sobre los programas de escucha disponibles. Se usa el primero que exista en la maquina remota
         for escuchador in listeners.keys():
             if SSH.comando_ok(ssh, f'which {escuchador}'):
-                # Comando a ejecutar para capturar trafico sin filtrar por puerto
-                com = listeners[escuchador][0].replace('INTERFAZ', args.interface).replace('NOMBRE', f'{args.filename}_temp')
+                if mostrar:
+                    # Se muestra el escuchador que se usara para la captura
+                    print(f'[+] Using listener: {escuchador}\n')
+
+                # Comando a ejecutar para capturar trafico sin filtrar por puerto y con nombre temporal para la captura
+                com = listeners[escuchador][0].replace('INTERFAZ', args.interface).replace('NOMBRE', args.filename)
 
                 # Si se ha especificado un puerto, se agnade al comando
                 if args.port:
