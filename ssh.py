@@ -78,7 +78,6 @@ class SSH:
         
         # Borrar captura remota
         SSH.comando_ok(ssh, f'rm -f /tmp/{args.filename}')
-        # del /f /q FICHERO -> Equivalente en Windows a rm -f FICHERO
 
 
 
