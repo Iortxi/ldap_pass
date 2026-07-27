@@ -1,8 +1,6 @@
 
 # LDAP_SNIFF
 
-# NOT TESTED
-
 **Language**
 - [Español 🇪🇸](./README_es.md)
 - English 🇬🇧
