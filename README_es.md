@@ -1,8 +1,6 @@
 
 # LDAP_SNIFF
 
-# NO ACABADO
-
 Utilizar un entorno virtual para que funcione con claves privadas DSA (paramiko):
 pip install "paramiko<2.8"
 pip install -r requirements.txt
